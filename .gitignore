@@ -4,6 +4,7 @@
 /bazel-out
 /integration/bazel/bazel-*
 e2e_test.*
+*.log
 node_modules
 tools/gulp-tasks/cldr/cldr-data/
 
@@ -39,3 +40,5 @@ yarn-error.log
 # User specific bazel settings
 .bazelrc.user
 
+.notes.md
+baseline.json

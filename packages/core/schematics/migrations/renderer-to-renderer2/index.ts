@@ -11,11 +11,13 @@ import {dirname, relative} from 'path';
 import * as ts from 'typescript';
 
 import {getProjectTsConfigPaths} from '../../utils/project_tsconfig_paths';
+import {createMigrationCompilerHost} from '../../utils/typescript/compiler_host';
 import {parseTsconfigFile} from '../../utils/typescript/parse_tsconfig';
 
 import {HelperFunction, getHelper} from './helpers';
 import {migrateExpression, replaceImport} from './migration';
 import {findCoreImport, findRendererReferences} from './util';
+
 
 
 /**
@@ -30,8 +32,11 @@ export default function(): Rule {
     const logger = context.logger;
 
     logger.info('------ Renderer to Renderer2 Migration ------');
-    logger.info('As of Angular 9, the Renderer class is no longer available.');
-    logger.info('Renderer2 should be used instead.');
+    logger.info('As of Angular 9, the Renderer class is no longer available. ');
+    logger.info('Renderer2 should be used instead. Read more about this in ');
+    logger.info('the dedicated guide: ');
+    logger.info('https://v9.angular.io/guide/migration-renderer');
+
 
     if (!allPaths.length) {
       throw new SchematicsException(
@@ -46,17 +51,7 @@ export default function(): Rule {
 
 function runRendererToRenderer2Migration(tree: Tree, tsconfigPath: string, basePath: string) {
   const parsed = parseTsconfigFile(tsconfigPath, dirname(tsconfigPath));
-  const host = ts.createCompilerHost(parsed.options, true);
-
-  // We need to overwrite the host "readFile" method, as we want the TypeScript
-  // program to be based on the file contents in the virtual file tree. Otherwise
-  // if we run the migration for multiple tsconfig files which have intersecting
-  // source files, it can end up updating query definitions multiple times.
-  host.readFile = fileName => {
-    const buffer = tree.read(relative(basePath, fileName));
-    return buffer ? buffer.toString() : undefined;
-  };
-
+  const host = createMigrationCompilerHost(tree, parsed.options, basePath);
   const program = ts.createProgram(parsed.fileNames, parsed.options, host);
   const typeChecker = program.getTypeChecker();
   const printer = ts.createPrinter();

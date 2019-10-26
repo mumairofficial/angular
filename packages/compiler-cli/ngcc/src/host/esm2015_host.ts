@@ -344,10 +344,18 @@ export class Esm2015ReflectionHost extends TypeScriptReflectionHost implements N
     return superDeclaration;
   }
 
-  /** Gets all decorators of the given class symbol. */
+  /**
+   * Gets all decorators of the given class symbol. Any decorator that have been synthetically
+   * injected by a migration will not be present in the returned collection.
+   */
   getDecoratorsOfSymbol(symbol: NgccClassSymbol): Decorator[]|null {
     const {classDecorators} = this.acquireDecoratorInfo(symbol);
-    return classDecorators;
+    if (classDecorators === null) {
+      return null;
+    }
+
+    // Return a clone of the array to prevent consumers from mutating the cache.
+    return Array.from(classDecorators);
   }
 
   /**
@@ -1778,7 +1786,10 @@ function isNamedDeclaration(node: ts.Declaration): node is ts.NamedDeclaration&
 
 function isClassMemberType(node: ts.Declaration): node is ts.ClassElement|
     ts.PropertyAccessExpression|ts.BinaryExpression {
-  return ts.isClassElement(node) || isPropertyAccess(node) || ts.isBinaryExpression(node);
+  return (ts.isClassElement(node) || isPropertyAccess(node) || ts.isBinaryExpression(node)) &&
+      // Additionally, ensure `node` is not an index signature, for example on an abstract class:
+      // `abstract class Foo { [key: string]: any; }`
+      !ts.isIndexSignatureDeclaration(node);
 }
 
 /**

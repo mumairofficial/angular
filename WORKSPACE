@@ -21,8 +21,8 @@ http_archive(
     patch_args = ["-p1"],
     # Patch https://github.com/bazelbuild/rules_nodejs/pull/903
     patches = ["//tools:rollup_bundle_commonjs_ignoreGlobal.patch"],
-    sha256 = "da217044d24abd16667324626a33581f3eaccabf80985b2688d6a08ed2f864be",
-    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/0.37.1/rules_nodejs-0.37.1.tar.gz"],
+    sha256 = "ad4be2c6f40f5af70c7edf294955f9d9a0222c8e2756109731b25f79ea2ccea0",
+    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/0.38.3/rules_nodejs-0.38.3.tar.gz"],
 )
 
 # Check the bazel version and download npm dependencies
@@ -55,7 +55,9 @@ Try running `yarn bazel` instead.
 #   - 0.32.2 resolves bug in @bazel/hide-bazel-files postinstall step
 #   - 0.34.0 introduces protractor rule
 #   - 0.37.1 windows fixes
-check_rules_nodejs_version(minimum_version_string = "0.37.1")
+#   - 0.38.2 Adds NpmPackageInfo & JSNamedModuleInfo providers
+#   - 0.38.3 all providers loaded from //:providers.bzl
+check_rules_nodejs_version(minimum_version_string = "0.38.3")
 
 # Setup the Node.js toolchain
 node_repositories(
@@ -102,9 +104,9 @@ load("@npm_bazel_protractor//:package.bzl", "npm_bazel_protractor_dependencies")
 npm_bazel_protractor_dependencies()
 
 # Load karma dependencies
-load("@npm_bazel_karma//:package.bzl", "rules_karma_dependencies")
+load("@npm_bazel_karma//:package.bzl", "npm_bazel_karma_dependencies")
 
-rules_karma_dependencies()
+npm_bazel_karma_dependencies()
 
 # Setup the rules_webtesting toolchain
 load("@io_bazel_rules_webtesting//web:repositories.bzl", "web_test_repositories")

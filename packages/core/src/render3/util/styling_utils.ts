@@ -5,7 +5,7 @@
 * Use of this source code is governed by an MIT-style license that can be
 * found in the LICENSE file at https://angular.io/license
 */
-import {TNode, TNodeFlags} from '../interfaces/node';
+import {PropertyAliases, TNode, TNodeFlags} from '../interfaces/node';
 import {LStylingData, StylingMapArray, StylingMapArrayIndex, TStylingConfig, TStylingContext, TStylingContextIndex, TStylingContextPropConfigFlags} from '../interfaces/styling';
 import {NO_CHANGE} from '../tokens';
 
@@ -41,17 +41,25 @@ export const DEFAULT_GUARD_MASK_VALUE = 0b1;
  * tNode for styles and for classes. This function allocates a new instance of a
  * `TStylingContext` with the initial values (see `interfaces.ts` for more info).
  */
-export function allocTStylingContext(initialStyling?: StylingMapArray | null): TStylingContext {
-  initialStyling = initialStyling || allocStylingMapArray();
+export function allocTStylingContext(
+    initialStyling: StylingMapArray | null, hasDirectives: boolean): TStylingContext {
+  initialStyling = initialStyling || allocStylingMapArray(null);
+  let config = TStylingConfig.Initial;
+  if (hasDirectives) {
+    config |= TStylingConfig.HasDirectives;
+  }
+  if (initialStyling.length > StylingMapArrayIndex.ValuesStartPosition) {
+    config |= TStylingConfig.HasInitialStyling;
+  }
   return [
-    TStylingConfig.Initial,  // 1) config for the styling context
-    DEFAULT_TOTAL_SOURCES,   // 2) total amount of styling sources (template, directives, etc...)
-    initialStyling,          // 3) initial styling values
+    config,                 // 1) config for the styling context
+    DEFAULT_TOTAL_SOURCES,  // 2) total amount of styling sources (template, directives, etc...)
+    initialStyling,         // 3) initial styling values
   ];
 }
 
-export function allocStylingMapArray(): StylingMapArray {
-  return [''];
+export function allocStylingMapArray(value: {} | string | null): StylingMapArray {
+  return [value];
 }
 
 export function getConfig(context: TStylingContext) {
@@ -66,15 +74,34 @@ export function hasConfig(context: TStylingContext, flag: TStylingConfig) {
  * Determines whether or not to apply styles/classes directly or via context resolution.
  *
  * There are three cases that are matched here:
- * 1. context is locked for template or host bindings (depending on `hostBindingsMode`)
- * 2. There are no collisions (i.e. properties with more than one binding)
- * 3. There are only "prop" or "map" bindings present, but not both
+ * 1. there are no directives present AND ngDevMode is falsy
+ * 2. context is locked for template or host bindings (depending on `hostBindingsMode`)
+ * 3. There are no collisions (i.e. properties with more than one binding) across multiple
+ *    sources (i.e. template + directive, directive + directive, directive + component)
  */
 export function allowDirectStyling(context: TStylingContext, hostBindingsMode: boolean): boolean {
+  let allow = false;
   const config = getConfig(context);
-  return ((config & getLockedConfig(hostBindingsMode)) !== 0) &&
-      ((config & TStylingConfig.HasCollisions) === 0) &&
-      ((config & TStylingConfig.HasPropAndMapBindings) !== TStylingConfig.HasPropAndMapBindings);
+  const contextIsLocked = (config & getLockedConfig(hostBindingsMode)) !== 0;
+  const hasNoDirectives = (config & TStylingConfig.HasDirectives) === 0;
+
+  // if no directives are present then we do not need populate a context at all. This
+  // is because duplicate prop bindings cannot be registered through the template. If
+  // and when this happens we can safely apply the value directly without context
+  // resolution...
+  if (hasNoDirectives) {
+    // `ngDevMode` is required to be checked here because tests/debugging rely on the context being
+    // populated. If things are in production mode then there is no need to build a context
+    // therefore the direct apply can be allowed (even on the first update).
+    allow = ngDevMode ? contextIsLocked : true;
+  } else if (contextIsLocked) {
+    const hasNoCollisions = (config & TStylingConfig.HasCollisions) === 0;
+    const hasOnlyMapsOrOnlyProps =
+        (config & TStylingConfig.HasPropAndMapBindings) !== TStylingConfig.HasPropAndMapBindings;
+    allow = hasNoCollisions && hasOnlyMapsOrOnlyProps;
+  }
+
+  return allow;
 }
 
 export function setConfig(context: TStylingContext, value: TStylingConfig): void {
@@ -142,7 +169,7 @@ export function setValue(data: LStylingData, bindingIndex: number, value: any) {
 }
 
 export function getValue<T = any>(data: LStylingData, bindingIndex: number): T|null {
-  return bindingIndex > 0 ? data[bindingIndex] as T : null;
+  return bindingIndex !== 0 ? data[bindingIndex] as T : null;
 }
 
 export function lockContext(context: TStylingContext, hostBindingsMode: boolean): void {
@@ -180,7 +207,8 @@ export function hasValueChanged(
 /**
  * Determines whether the provided styling value is truthy or falsy.
  */
-export function isStylingValueDefined(value: any) {
+export function isStylingValueDefined<T extends string|number|{}|null|undefined>(value: T):
+    value is NonNullable<T> {
   // the reason why null is compared against is because
   // a CSS class value that is set to `false` must be
   // respected (otherwise it would be treated as falsy).
@@ -212,14 +240,14 @@ export function getStylingMapArray(value: TStylingContext | StylingMapArray | nu
       value as StylingMapArray;
 }
 
-export function isStylingContext(value: TStylingContext | StylingMapArray | null): boolean {
+export function isStylingContext(value: any): boolean {
   // the StylingMapArray is in the format of [initial, prop, string, prop, string]
   // and this is the defining value to distinguish between arrays
   return Array.isArray(value) && value.length >= TStylingContextIndex.ValuesStartPosition &&
       typeof value[1] !== 'string';
 }
 
-export function isStylingMapArray(value: TStylingContext | StylingMapArray | null): boolean {
+export function isStylingMapArray(value: any): boolean {
   // the StylingMapArray is in the format of [initial, prop, string, prop, string]
   // and this is the defining value to distinguish between arrays
   return Array.isArray(value) &&
@@ -267,13 +295,19 @@ export function forceClassesAsString(classes: string | {[key: string]: any} | nu
   return (classes as string) || '';
 }
 
-export function forceStylesAsString(styles: {[key: string]: any} | null | undefined): string {
+export function forceStylesAsString(
+    styles: {[key: string]: any} | string | null | undefined, hyphenateProps: boolean): string {
+  if (typeof styles == 'string') return styles;
   let str = '';
   if (styles) {
     const props = Object.keys(styles);
     for (let i = 0; i < props.length; i++) {
       const prop = props[i];
-      str = concatString(str, `${prop}:${styles[prop]}`, ';');
+      const propLabel = hyphenateProps ? hyphenate(prop) : prop;
+      const value = styles[prop];
+      if (value !== null) {
+        str = concatString(str, `${propLabel}:${value}`, ';');
+      }
     }
   }
   return str;
@@ -368,8 +402,9 @@ export function normalizeIntoStylingMap(
     bindingValue: null | StylingMapArray,
     newValues: {[key: string]: any} | string | null | undefined,
     normalizeProps?: boolean): StylingMapArray {
-  const stylingMapArr: StylingMapArray = Array.isArray(bindingValue) ? bindingValue : [null];
-  stylingMapArr[StylingMapArrayIndex.RawValuePosition] = newValues || null;
+  const stylingMapArr: StylingMapArray =
+      Array.isArray(bindingValue) ? bindingValue : allocStylingMapArray(null);
+  stylingMapArr[StylingMapArrayIndex.RawValuePosition] = newValues;
 
   // because the new values may not include all the properties
   // that the old ones had, all values are set to `null` before
@@ -385,10 +420,8 @@ export function normalizeIntoStylingMap(
   let map: {[key: string]: any}|undefined|null;
   let allValuesTrue = false;
   if (typeof newValues === 'string') {  // [class] bindings allow string values
-    if (newValues.length) {
-      props = newValues.split(/\s+/);
-      allValuesTrue = true;
-    }
+    props = splitOnWhitespace(newValues);
+    allValuesTrue = props !== null;
   } else {
     props = newValues ? Object.keys(newValues) : null;
     map = newValues;
@@ -396,7 +429,7 @@ export function normalizeIntoStylingMap(
 
   if (props) {
     for (let i = 0; i < props.length; i++) {
-      const prop = props[i] as string;
+      const prop = props[i];
       const newProp = normalizeProps ? hyphenate(prop) : prop;
       const value = allValuesTrue ? true : map ![prop];
       addItemToStylingMap(stylingMapArr, newProp, value, true);
@@ -404,4 +437,36 @@ export function normalizeIntoStylingMap(
   }
 
   return stylingMapArr;
+}
+
+export function splitOnWhitespace(text: string): string[]|null {
+  let array: string[]|null = null;
+  let length = text.length;
+  let start = 0;
+  let foundChar = false;
+  for (let i = 0; i < length; i++) {
+    const char = text.charCodeAt(i);
+    if (char <= 32 /*' '*/) {
+      if (foundChar) {
+        if (array === null) array = [];
+        array.push(text.substring(start, i));
+        foundChar = false;
+      }
+      start = i + 1;
+    } else {
+      foundChar = true;
+    }
+  }
+  if (foundChar) {
+    if (array === null) array = [];
+    array.push(text.substring(start, length));
+    foundChar = false;
+  }
+  return array;
+}
+
+// TODO (matsko|AndrewKushnir): refactor this once we figure out how to generate separate
+// `input('class') + classMap()` instructions.
+export function selectClassBasedInputName(inputs: PropertyAliases): string {
+  return inputs.hasOwnProperty('class') ? 'class' : 'className';
 }

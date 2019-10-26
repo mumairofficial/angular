@@ -9,12 +9,14 @@
 import {logging} from '@angular-devkit/core';
 import {Rule, SchematicContext, SchematicsException, Tree} from '@angular-devkit/schematics';
 import {AotCompiler} from '@angular/compiler';
+import {createCompilerHost} from '@angular/compiler-cli';
 import {PartialEvaluator} from '@angular/compiler-cli/src/ngtsc/partial_evaluator';
 import {TypeScriptReflectionHost} from '@angular/compiler-cli/src/ngtsc/reflection';
 import {relative} from 'path';
 import * as ts from 'typescript';
 
 import {getProjectTsConfigPaths} from '../../utils/project_tsconfig_paths';
+import {createMigrationCompilerHost} from '../../utils/typescript/compiler_host';
 
 import {createNgcProgram} from './create_ngc_program';
 import {NgDeclarationCollector} from './ng_declaration_collector';
@@ -36,6 +38,12 @@ export default function(): Rule {
     const failures: string[] = [];
 
     ctx.logger.info('------ Undecorated classes with DI migration ------');
+    ctx.logger.info(
+        'As of Angular 9, it is no longer supported to use Angular DI ' +
+        'on a class that does not have an Angular decorator. ');
+    ctx.logger.info('Read more about this in the dedicated guide: ');
+    ctx.logger.info('https://v9.angular.io/guide/migration-undecorated-classes');
+
 
     if (!buildPaths.length) {
       throw new SchematicsException(
@@ -146,21 +154,8 @@ function gracefullyCreateProgram(
     tree: Tree, basePath: string, tsconfigPath: string,
     logger: logging.LoggerApi): {compiler: AotCompiler, program: ts.Program}|null {
   try {
-    const {ngcProgram, host, program, compiler} = createNgcProgram((options) => {
-      const host = ts.createCompilerHost(options, true);
-
-      // We need to overwrite the host "readFile" method, as we want the TypeScript
-      // program to be based on the file contents in the virtual file tree.
-      host.readFile = fileName => {
-        const buffer = tree.read(relative(basePath, fileName));
-        // Strip BOM as otherwise TSC methods (Ex: getWidth) will return an offset which
-        // which breaks the CLI UpdateRecorder.
-        // See: https://github.com/angular/angular/pull/30719
-        return buffer ? buffer.toString().replace(/^\uFEFF/, '') : undefined;
-      };
-
-      return host;
-    }, tsconfigPath);
+    const {ngcProgram, host, program, compiler} = createNgcProgram(
+        (options) => createMigrationCompilerHost(tree, options, basePath), tsconfigPath);
     const syntacticDiagnostics = ngcProgram.getTsSyntacticDiagnostics();
     const structuralDiagnostics = ngcProgram.getNgStructuralDiagnostics();
 

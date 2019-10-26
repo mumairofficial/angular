@@ -158,8 +158,9 @@ export class UmdReflectionHost extends Esm5ReflectionHost {
   private resolveModuleName(moduleName: string, containingFile: ts.SourceFile): ts.SourceFile
       |undefined {
     if (this.compilerHost.resolveModuleNames) {
-      const moduleInfo =
-          this.compilerHost.resolveModuleNames([moduleName], containingFile.fileName)[0];
+      const moduleInfo = this.compilerHost.resolveModuleNames(
+          [moduleName], containingFile.fileName, undefined, undefined,
+          this.program.getCompilerOptions())[0];
       return moduleInfo && this.program.getSourceFile(absoluteFrom(moduleInfo.resolvedFileName));
     } else {
       const moduleInfo = ts.resolveModuleName(

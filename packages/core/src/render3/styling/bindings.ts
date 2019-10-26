@@ -7,14 +7,15 @@
 */
 import {SafeValue, unwrapSafeValue} from '../../sanitization/bypass';
 import {StyleSanitizeFn, StyleSanitizeMode} from '../../sanitization/style_sanitizer';
+import {global} from '../../util/global';
 import {ProceduralRenderer3, RElement, Renderer3, RendererStyleFlags3, isProceduralRenderer} from '../interfaces/renderer';
 import {ApplyStylingFn, LStylingData, StylingMapArray, StylingMapArrayIndex, StylingMapsSyncMode, SyncStylingMapsFn, TStylingConfig, TStylingContext, TStylingContextIndex, TStylingContextPropConfigFlags} from '../interfaces/styling';
 import {NO_CHANGE} from '../tokens';
-import {DEFAULT_BINDING_INDEX, DEFAULT_BINDING_VALUE, DEFAULT_GUARD_MASK_VALUE, MAP_BASED_ENTRY_PROP_NAME, getBindingValue, getConfig, getDefaultValue, getGuardMask, getMapProp, getMapValue, getProp, getPropValuesStartPosition, getStylingMapArray, getTotalSources, getValue, getValuesCount, hasConfig, hasValueChanged, isContextLocked, isHostStylingActive, isSanitizationRequired, isStylingValueDefined, lockContext, patchConfig, setDefaultValue, setGuardMask, setMapAsDirty, setValue} from '../util/styling_utils';
+import {DEFAULT_BINDING_INDEX, DEFAULT_BINDING_VALUE, DEFAULT_GUARD_MASK_VALUE, MAP_BASED_ENTRY_PROP_NAME, TEMPLATE_DIRECTIVE_INDEX, concatString, forceStylesAsString, getBindingValue, getConfig, getDefaultValue, getGuardMask, getInitialStylingValue, getMapProp, getMapValue, getProp, getPropValuesStartPosition, getStylingMapArray, getTotalSources, getValue, getValuesCount, hasConfig, hasValueChanged, isContextLocked, isHostStylingActive, isSanitizationRequired, isStylingMapArray, isStylingValueDefined, lockContext, normalizeIntoStylingMap, patchConfig, setDefaultValue, setGuardMask, setMapAsDirty, setValue} from '../util/styling_utils';
 
 import {getStylingState, resetStylingState} from './state';
 
-
+const VALUE_IS_EXTERNALLY_MODIFIED = {};
 
 /**
  * --------
@@ -60,7 +61,12 @@ export function updateClassViaContext(
   const isMapBased = !prop;
   const state = getStylingState(element, directiveIndex);
   const countIndex = isMapBased ? STYLING_INDEX_FOR_MAP_BINDING : state.classesIndex++;
-  if (value !== NO_CHANGE) {
+  const hostBindingsMode = isHostStylingActive(state.sourceIndex);
+
+  // even if the initial value is a `NO_CHANGE` value (e.g. interpolation or [ngClass])
+  // then we still need to register the binding within the context so that the context
+  // is aware of the binding before it gets locked.
+  if (!isContextLocked(context, hostBindingsMode) || value !== NO_CHANGE) {
     const updated = updateBindingData(
         context, data, countIndex, state.sourceIndex, prop, bindingIndex, value, forceUpdate,
         false);
@@ -95,7 +101,12 @@ export function updateStyleViaContext(
   const isMapBased = !prop;
   const state = getStylingState(element, directiveIndex);
   const countIndex = isMapBased ? STYLING_INDEX_FOR_MAP_BINDING : state.stylesIndex++;
-  if (value !== NO_CHANGE) {
+  const hostBindingsMode = isHostStylingActive(state.sourceIndex);
+
+  // even if the initial value is a `NO_CHANGE` value (e.g. interpolation or [ngStyle])
+  // then we still need to register the binding within the context so that the context
+  // is aware of the binding before it gets locked.
+  if (!isContextLocked(context, hostBindingsMode) || value !== NO_CHANGE) {
     const sanitizationRequired = isMapBased ?
         true :
         (sanitizer ? sanitizer(prop !, null, StyleSanitizeMode.ValidateProperty) : false);
@@ -143,7 +154,6 @@ function updateBindingData(
     patchConfig(
         context,
         hostBindingsMode ? TStylingConfig.HasHostBindings : TStylingConfig.HasTemplateBindings);
-    patchConfig(context, prop ? TStylingConfig.HasPropBindings : TStylingConfig.HasMapBindings);
   }
 
   const changed = forceUpdate || hasValueChanged(data[bindingIndex], value);
@@ -629,25 +639,126 @@ export function applyStylingViaContext(
  * automatically. This function is intended to be used for performance reasons in the
  * event that there is no need to apply styling via context resolution.
  *
- * See `allowDirectStylingApply`.
+ * This function has three different cases that can occur (for each item in the map):
+ *
+ * - Case 1: Attempt to apply the current value in the map to the element (if it's `non null`).
+ *
+ * - Case 2: If a map value fails to be applied then the algorithm will find a matching entry in
+ *           the initial values present in the context and attempt to apply that.
+ *
+ * - Default Case: If the initial value cannot be applied then a default value of `null` will be
+ *                 applied (which will remove the style/class value from the element).
+ *
+ * See `allowDirectStylingApply` to learn the logic used to determine whether any style/class
+ * bindings can be directly applied.
  *
  * @returns whether or not the styling map was applied to the element.
  */
 export function applyStylingMapDirectly(
     renderer: any, context: TStylingContext, element: RElement, data: LStylingData,
-    bindingIndex: number, map: StylingMapArray, applyFn: ApplyStylingFn,
-    sanitizer?: StyleSanitizeFn | null, forceUpdate?: boolean): boolean {
-  if (forceUpdate || hasValueChanged(data[bindingIndex], map)) {
-    setValue(data, bindingIndex, map);
-    for (let i = StylingMapArrayIndex.ValuesStartPosition; i < map.length;
-         i += StylingMapArrayIndex.TupleSize) {
-      const prop = getMapProp(map, i);
-      const value = getMapValue(map, i);
-      applyStylingValue(renderer, context, element, prop, value, applyFn, bindingIndex, sanitizer);
+    bindingIndex: number, value: {[key: string]: any} | string | null, isClassBased: boolean,
+    sanitizer?: StyleSanitizeFn | null, forceUpdate?: boolean,
+    bindingValueContainsInitial?: boolean): void {
+  const oldValue = getValue(data, bindingIndex);
+  if (forceUpdate || hasValueChanged(oldValue, value)) {
+    const config = getConfig(context);
+    const hasInitial = config & TStylingConfig.HasInitialStyling;
+    const initialValue =
+        hasInitial && !bindingValueContainsInitial ? getInitialStylingValue(context) : null;
+    setValue(data, bindingIndex, value);
+
+    // the cached value is the last snapshot of the style or class
+    // attribute value and is used in the if statement below to
+    // keep track of internal/external changes.
+    const cachedValueIndex = bindingIndex + 1;
+    let cachedValue = getValue(data, cachedValueIndex);
+    if (cachedValue === NO_CHANGE) {
+      cachedValue = initialValue;
     }
-    return true;
+    cachedValue = typeof cachedValue !== 'string' ? '' : cachedValue;
+
+    // If a class/style value was modified externally then the styling
+    // fast pass cannot guarantee that the external values are retained.
+    // When this happens, the algorithm will bail out and not write to
+    // the style or className attribute directly.
+    let writeToAttrDirectly = !(config & TStylingConfig.HasPropBindings);
+    if (writeToAttrDirectly &&
+        checkIfExternallyModified(element as HTMLElement, cachedValue, isClassBased)) {
+      writeToAttrDirectly = false;
+      if (oldValue !== VALUE_IS_EXTERNALLY_MODIFIED) {
+        // direct styling will reset the attribute entirely each time,
+        // and, for this reason, if the algorithm decides it cannot
+        // write to the class/style attributes directly then it must
+        // reset all the previous style/class values before it starts
+        // to apply values in the non-direct way.
+        removeStylingValues(renderer, element, oldValue, isClassBased);
+
+        // this will instruct the algorithm not to apply class or style
+        // values directly anymore.
+        setValue(data, cachedValueIndex, VALUE_IS_EXTERNALLY_MODIFIED);
+      }
+    }
+
+    if (writeToAttrDirectly) {
+      const initialValue =
+          hasInitial && !bindingValueContainsInitial ? getInitialStylingValue(context) : null;
+      const valueToApply =
+          writeStylingValueDirectly(renderer, element, value, isClassBased, initialValue);
+      setValue(data, cachedValueIndex, valueToApply || null);
+    } else {
+      const applyFn = isClassBased ? setClass : setStyle;
+      const map = normalizeIntoStylingMap(oldValue, value, !isClassBased);
+      const initialStyles = hasInitial ? getStylingMapArray(context) : null;
+
+      for (let i = StylingMapArrayIndex.ValuesStartPosition; i < map.length;
+           i += StylingMapArrayIndex.TupleSize) {
+        const prop = getMapProp(map, i);
+        const value = getMapValue(map, i);
+
+        // case 1: apply the map value (if it exists)
+        let applied =
+            applyStylingValue(renderer, element, prop, value, applyFn, bindingIndex, sanitizer);
+
+        // case 2: apply the initial value (if it exists)
+        if (!applied && initialStyles) {
+          applied = findAndApplyMapValue(
+              renderer, element, applyFn, initialStyles, prop, bindingIndex, sanitizer);
+        }
+
+        // default case: apply `null` to remove the value
+        if (!applied) {
+          applyFn(renderer, element, prop, null, bindingIndex);
+        }
+      }
+
+      const state = getStylingState(element, TEMPLATE_DIRECTIVE_INDEX);
+      if (isClassBased) {
+        state.lastDirectClassMap = map;
+      } else {
+        state.lastDirectStyleMap = map;
+      }
+    }
   }
-  return false;
+}
+
+export function writeStylingValueDirectly(
+    renderer: any, element: RElement, value: {[key: string]: any} | string | null,
+    isClassBased: boolean, initialValue: string | null): string {
+  let valueToApply: string;
+  if (isClassBased) {
+    valueToApply = typeof value === 'string' ? value : objectToClassName(value);
+    if (initialValue !== null) {
+      valueToApply = concatString(initialValue, valueToApply, ' ');
+    }
+    setClassName(renderer, element, valueToApply);
+  } else {
+    valueToApply = forceStylesAsString(value, true);
+    if (initialValue !== null) {
+      valueToApply = initialValue + ';' + valueToApply;
+    }
+    setStyleAttr(renderer, element, valueToApply);
+  }
+  return valueToApply;
 }
 
 /**
@@ -657,47 +768,97 @@ export function applyStylingMapDirectly(
  * automatically. This function is intended to be used for performance reasons in the
  * event that there is no need to apply styling via context resolution.
  *
- * See `allowDirectStylingApply`.
+ * This function has four different cases that can occur:
+ *
+ * - Case 1: Apply the provided prop/value (style or class) entry to the element
+ *           (if it is `non null`).
+ *
+ * - Case 2: If value does not get applied (because its `null` or `undefined`) then the algorithm
+ *           will check to see if a styling map value was applied to the element as well just
+ *           before this (via `styleMap` or `classMap`). If and when a map is present then the
+  *          algorithm will find the matching property in the map and apply its value.
+  *
+ * - Case 3: If a map value fails to be applied then the algorithm will check to see if there
+ *           are any initial values present and attempt to apply a matching value based on
+ *           the target prop.
+ *
+ * - Default Case: If a matching initial value cannot be applied then a default value
+ *                 of `null` will be applied (which will remove the style/class value
+ *                 from the element).
+ *
+ * See `allowDirectStylingApply` to learn the logic used to determine whether any style/class
+ * bindings can be directly applied.
  *
  * @returns whether or not the prop/value styling was applied to the element.
  */
 export function applyStylingValueDirectly(
     renderer: any, context: TStylingContext, element: RElement, data: LStylingData,
-    bindingIndex: number, prop: string, value: any, applyFn: ApplyStylingFn,
+    bindingIndex: number, prop: string, value: any, isClassBased: boolean,
     sanitizer?: StyleSanitizeFn | null): boolean {
+  let applied = false;
   if (hasValueChanged(data[bindingIndex], value)) {
     setValue(data, bindingIndex, value);
-    applyStylingValue(renderer, context, element, prop, value, applyFn, bindingIndex, sanitizer);
+    const applyFn = isClassBased ? setClass : setStyle;
+
+    // case 1: apply the provided value (if it exists)
+    applied = applyStylingValue(renderer, element, prop, value, applyFn, bindingIndex, sanitizer);
+
+    // case 2: find the matching property in a styling map and apply the detected value
+    if (!applied && hasConfig(context, TStylingConfig.HasMapBindings)) {
+      const state = getStylingState(element, TEMPLATE_DIRECTIVE_INDEX);
+      const map = isClassBased ? state.lastDirectClassMap : state.lastDirectStyleMap;
+      applied = map ?
+          findAndApplyMapValue(renderer, element, applyFn, map, prop, bindingIndex, sanitizer) :
+          false;
+    }
+
+    // case 3: apply the initial value (if it exists)
+    if (!applied && hasConfig(context, TStylingConfig.HasInitialStyling)) {
+      const map = getStylingMapArray(context);
+      applied =
+          map ? findAndApplyMapValue(renderer, element, applyFn, map, prop, bindingIndex) : false;
+    }
+
+    // default case: apply `null` to remove the value
+    if (!applied) {
+      applyFn(renderer, element, prop, null, bindingIndex);
+    }
+  }
+  return applied;
+}
+
+function applyStylingValue(
+    renderer: any, element: RElement, prop: string, value: any, applyFn: ApplyStylingFn,
+    bindingIndex: number, sanitizer?: StyleSanitizeFn | null): boolean {
+  let valueToApply: string|null = unwrapSafeValue(value);
+  if (isStylingValueDefined(valueToApply)) {
+    valueToApply =
+        sanitizer ? sanitizer(prop, value, StyleSanitizeMode.ValidateAndSanitize) : valueToApply;
+    applyFn(renderer, element, prop, valueToApply, bindingIndex);
     return true;
   }
   return false;
 }
 
-function applyStylingValue(
-    renderer: any, context: TStylingContext, element: RElement, prop: string, value: any,
-    applyFn: ApplyStylingFn, bindingIndex: number, sanitizer?: StyleSanitizeFn | null) {
-  let valueToApply: string|null = unwrapSafeValue(value);
-  if (isStylingValueDefined(valueToApply)) {
-    valueToApply =
-        sanitizer ? sanitizer(prop, value, StyleSanitizeMode.SanitizeOnly) : valueToApply;
-  } else if (hasConfig(context, TStylingConfig.HasInitialStyling)) {
-    const initialStyles = getStylingMapArray(context);
-    if (initialStyles) {
-      valueToApply = findInitialStylingValue(initialStyles, prop);
-    }
-  }
-  applyFn(renderer, element, prop, valueToApply, bindingIndex);
-}
-
-function findInitialStylingValue(map: StylingMapArray, prop: string): string|null {
+function findAndApplyMapValue(
+    renderer: any, element: RElement, applyFn: ApplyStylingFn, map: StylingMapArray, prop: string,
+    bindingIndex: number, sanitizer?: StyleSanitizeFn | null) {
   for (let i = StylingMapArrayIndex.ValuesStartPosition; i < map.length;
        i += StylingMapArrayIndex.TupleSize) {
     const p = getMapProp(map, i);
-    if (p >= prop) {
-      return p === prop ? getMapValue(map, i) : null;
+    if (p === prop) {
+      let valueToApply = getMapValue(map, i);
+      valueToApply = sanitizer ?
+          sanitizer(prop, valueToApply, StyleSanitizeMode.ValidateAndSanitize) :
+          valueToApply;
+      applyFn(renderer, element, prop, valueToApply, bindingIndex);
+      return true;
+    }
+    if (p > prop) {
+      break;
     }
   }
-  return null;
+  return false;
 }
 
 function normalizeBitMaskValue(value: number | boolean): number {
@@ -726,7 +887,8 @@ export function setStylingMapsSyncFn(fn: SyncStylingMapsFn) {
 export const setStyle: ApplyStylingFn =
     (renderer: Renderer3 | null, native: RElement, prop: string, value: string | null) => {
       if (renderer !== null) {
-        if (value) {
+        // Use `isStylingValueDefined` to account for falsy values that should be bound like 0.
+        if (isStylingValueDefined(value)) {
           // opacity, z-index and flexbox all have number values
           // and these need to be converted into strings so that
           // they can be assigned properly.
@@ -793,6 +955,26 @@ export const setClass: ApplyStylingFn =
       }
     };
 
+export const setClassName = (renderer: Renderer3 | null, native: RElement, className: string) => {
+  if (renderer !== null) {
+    if (isProceduralRenderer(renderer)) {
+      renderer.setAttribute(native, 'class', className);
+    } else {
+      native.className = className;
+    }
+  }
+};
+
+export const setStyleAttr = (renderer: Renderer3 | null, native: RElement, value: string) => {
+  if (renderer !== null) {
+    if (isProceduralRenderer(renderer)) {
+      renderer.setAttribute(native, 'style', value);
+    } else {
+      native.setAttribute('style', value);
+    }
+  }
+};
+
 /**
  * Iterates over all provided styling entries and renders them on the element.
  *
@@ -816,6 +998,66 @@ export function renderStylingMap(
       } else {
         setStyle(renderer, element, prop, value, null);
       }
+    }
+  }
+}
+
+function objectToClassName(obj: {[key: string]: any} | null): string {
+  let str = '';
+  if (obj) {
+    for (let key in obj) {
+      const value = obj[key];
+      if (value) {
+        str += (str.length ? ' ' : '') + key;
+      }
+    }
+  }
+  return str;
+}
+
+/**
+ * Determines whether or not an element style/className value has changed since the last update.
+ *
+ * This function helps Angular determine if a style or class attribute value was
+ * modified by an external plugin or API outside of the style binding code. This
+ * means any JS code that adds/removes class/style values on an element outside
+ * of Angular's styling binding algorithm.
+ *
+ * @returns true when the value was modified externally.
+ */
+function checkIfExternallyModified(element: HTMLElement, cachedValue: any, isClassBased: boolean) {
+  // this means it was checked before and there is no reason
+  // to compare the style/class values again. Either that or
+  // web workers are being used.
+  if (global.Node === 'undefined' || cachedValue === VALUE_IS_EXTERNALLY_MODIFIED) return true;
+
+  // comparing the DOM value against the cached value is the best way to
+  // see if something has changed.
+  const currentValue =
+      (isClassBased ? element.className : (element.style && element.style.cssText)) || '';
+  return currentValue !== (cachedValue || '');
+}
+
+/**
+ * Removes provided styling values from the element
+ */
+function removeStylingValues(
+    renderer: any, element: RElement, values: string | {[key: string]: any} | StylingMapArray,
+    isClassBased: boolean) {
+  let arr: StylingMapArray;
+  if (isStylingMapArray(values)) {
+    arr = values as StylingMapArray;
+  } else {
+    arr = normalizeIntoStylingMap(null, values, !isClassBased);
+  }
+
+  const applyFn = isClassBased ? setClass : setStyle;
+  for (let i = StylingMapArrayIndex.ValuesStartPosition; i < arr.length;
+       i += StylingMapArrayIndex.TupleSize) {
+    const value = getMapValue(arr, i);
+    if (value) {
+      const prop = getMapProp(arr, i);
+      applyFn(renderer, element, prop, false);
     }
   }
 }

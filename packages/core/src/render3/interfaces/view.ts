@@ -15,7 +15,7 @@ import {Sanitizer} from '../../sanitization/sanitizer';
 import {LContainer} from './container';
 import {ComponentDef, ComponentTemplate, DirectiveDef, DirectiveDefList, HostBindingsFunction, PipeDef, PipeDefList, ViewQueriesFunction} from './definition';
 import {I18nUpdateOpCodes, TI18n} from './i18n';
-import {TElementNode, TNode, TViewNode} from './node';
+import {TAttributes, TElementNode, TNode, TViewNode} from './node';
 import {PlayerHandler} from './player';
 import {LQueries, TQueries} from './query';
 import {RElement, Renderer3, RendererFactory3} from './renderer';
@@ -299,7 +299,7 @@ export const enum InitPhaseState {
   InitPhaseCompleted = 0b11,
 }
 
-/** More flags associated with an LView (saved in LView[FLAGS_MORE]) */
+/** More flags associated with an LView (saved in LView[PREORDER_HOOK_FLAGS]) */
 export const enum PreOrderHookFlags {
   /** The index of the next pre-order hook to be called in the hooks array, on the first 16
      bits */
@@ -387,7 +387,7 @@ export interface TView {
   /**
    * The index where the "expando" section of `LView` begins. The expando
    * section contains injectors, directive instances, and host binding values.
-   * Unlike the "consts" and "vars" sections of `LView`, the length of this
+   * Unlike the "decls" and "vars" sections of `LView`, the length of this
    * section cannot be calculated at compile-time because directives are matched
    * at runtime to preserve locality.
    *
@@ -561,6 +561,12 @@ export interface TView {
    * Set of schemas that declare elements to be allowed inside the view.
    */
   schemas: SchemaMetadata[]|null;
+
+  /**
+   * Array of attributes for all of the elements in the view. Used
+   * for directive matching and attribute bindings.
+   */
+  consts: TAttributes[]|null;
 }
 
 export const enum RootContextFlags {Empty = 0b00, DetectChanges = 0b01, FlushPlayers = 0b10}

@@ -11,8 +11,11 @@ import {dirname, relative} from 'path';
 import * as ts from 'typescript';
 
 import {getProjectTsConfigPaths} from '../../utils/project_tsconfig_paths';
+import {createMigrationCompilerHost} from '../../utils/typescript/compiler_host';
 import {parseTsconfigFile} from '../../utils/typescript/parse_tsconfig';
+
 import {identifyDynamicQueryNodes, removeOptionsParameter, removeStaticFlag} from './util';
+
 
 
 /**
@@ -25,6 +28,10 @@ export default function(): Rule {
     const allPaths = [...buildPaths, ...testPaths];
 
     ctx.logger.info('------ Dynamic queries migration ------');
+    ctx.logger.info('As of Angular 9, the "static" flag defaults to false and is no ');
+    ctx.logger.info('longer required for your view and content queries. ');
+    ctx.logger.info('Read more about this in the dedicated guide: ');
+    ctx.logger.info('https://v9.angular.io/guide/migration-dynamic-flag');
 
     if (!allPaths.length) {
       throw new SchematicsException(
@@ -39,20 +46,7 @@ export default function(): Rule {
 
 function runDynamicQueryMigration(tree: Tree, tsconfigPath: string, basePath: string) {
   const parsed = parseTsconfigFile(tsconfigPath, dirname(tsconfigPath));
-  const host = ts.createCompilerHost(parsed.options, true);
-
-  // We need to overwrite the host "readFile" method, as we want the TypeScript
-  // program to be based on the file contents in the virtual file tree. Otherwise
-  // if we run the migration for multiple tsconfig files which have intersecting
-  // source files, it can end up updating query definitions multiple times.
-  host.readFile = fileName => {
-    const buffer = tree.read(relative(basePath, fileName));
-    // Strip BOM as otherwise TSC methods (Ex: getWidth) will return an offset which
-    // which breaks the CLI UpdateRecorder.
-    // See: https://github.com/angular/angular/pull/30719
-    return buffer ? buffer.toString().replace(/^\uFEFF/, '') : undefined;
-  };
-
+  const host = createMigrationCompilerHost(tree, parsed.options, basePath);
   const program = ts.createProgram(parsed.fileNames, parsed.options, host);
   const typeChecker = program.getTypeChecker();
   const sourceFiles = program.getSourceFiles().filter(

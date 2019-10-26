@@ -12,7 +12,7 @@ import {mapLiteral} from '../output/map_util';
 import * as o from '../output/output_ast';
 import {OutputContext} from '../util';
 
-import {R3DependencyMetadata, compileFactoryFunction} from './r3_factory';
+import {R3DependencyMetadata, R3FactoryTarget, compileFactoryFunction} from './r3_factory';
 import {Identifiers as R3} from './r3_identifiers';
 import {R3Reference, convertMetaToOutput, mapToMapExpression} from './util';
 
@@ -23,7 +23,7 @@ export interface R3NgModuleDef {
 }
 
 /**
- * Metadata required by the module compiler to generate a `ngModuleDef` for a type.
+ * Metadata required by the module compiler to generate a module def (`ɵmod`) for a type.
  */
 export interface R3NgModuleMetadata {
   /**
@@ -210,6 +210,7 @@ export function compileInjector(meta: R3InjectorMetadata): R3InjectorDef {
     typeArgumentCount: 0,
     deps: meta.deps,
     injectFn: R3.inject,
+    target: R3FactoryTarget.NgModule,
   });
   const definitionMap = {
     factory: result.factory,
@@ -251,7 +252,7 @@ export function compileNgModuleFromRender2(
       /* name */ className,
       /* parent */ null,
       /* fields */[new o.ClassField(
-          /* name */ 'ngInjectorDef',
+          /* name */ 'ɵinj',
           /* type */ o.INFERRED_TYPE,
           /* modifiers */[o.StmtModifier.Static],
           /* initializer */ injectorDef, )],
@@ -261,7 +262,7 @@ export function compileNgModuleFromRender2(
 }
 
 function accessExportScope(module: o.Expression): o.Expression {
-  const selectorScope = new o.ReadPropExpr(module, 'ngModuleDef');
+  const selectorScope = new o.ReadPropExpr(module, 'ɵmod');
   return new o.ReadPropExpr(selectorScope, 'exported');
 }
 

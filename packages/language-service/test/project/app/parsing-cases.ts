@@ -69,7 +69,9 @@ export class EventBinding {
 }
 
 @Component({
-  template: '<h1 [(model)]="~{two-way-binding-model}test"></h1>',
+  template: `
+    <h1 [(model)]="~{two-way-binding-model}test"></h1>
+    <input ~{two-way-binding-input}></input>`,
 })
 export class TwoWayBinding {
   test: string = 'test';
@@ -80,7 +82,7 @@ export class TwoWayBinding {
 })
 export class StringModel {
   @Input() model: string = 'model';
-  @Output() modelChanged: EventEmitter<string> = new EventEmitter();
+  @Output() modelChange: EventEmitter<string> = new EventEmitter();
 }
 
 @Directive({
@@ -88,12 +90,25 @@ export class StringModel {
 })
 export class NumberModel {
   @Input('inputAlias') model: number = 0;
-  @Output('outputAlias') modelChanged: EventEmitter<number> = new EventEmitter();
+  @Output('outputAlias') modelChange: EventEmitter<number> = new EventEmitter();
+}
+
+@Component({
+  selector: 'foo-component',
+  template: `
+    <div string-model ~{string-marker}="text"></div>
+    <div number-model ~{number-marker}="value"></div>
+  `,
+})
+export class FooComponent {
+  text: string = 'some text';
+  value: number = 42;
 }
 
 interface Person {
   name: string;
   age: number;
+  street: string;
 }
 
 @Component({
@@ -123,6 +138,25 @@ export class ForLetIEqual {
 })
 export class ForUsingComponent {
   people: Person[] = [];
+}
+
+@Component({
+  template: `
+    <div *ngFor="let person of people | async">
+      {{person.~{async-person-name}name}}
+    </div>
+    <div *ngIf="promisedPerson | async as person">
+      {{person.~{promised-person-name}name}}
+    </div>
+  `,
+})
+export class AsyncForUsingComponent {
+  people: Promise<Person[]> = Promise.resolve([]);
+  promisedPerson: Promise<Person> = Promise.resolve({
+    name: 'John Doe',
+    age: 42,
+    street: '123 Angular Ln',
+  });
 }
 
 @Component({

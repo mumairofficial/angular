@@ -201,6 +201,10 @@ export class StylingBuilder {
     const entry:
         BoundStylingEntry = {name: property, value, sourceSpan, hasOverrideFlag, unit: null};
     if (isMapBased) {
+      if (this._classMapInput) {
+        throw new Error(
+            '[class] and [className] bindings cannot be used on the same element simultaneously');
+      }
       this._classMapInput = entry;
     } else {
       (this._singleClassInputs = this._singleClassInputs || []).push(entry);
@@ -322,7 +326,10 @@ export class StylingBuilder {
       valueConverter: ValueConverter, isClassBased: boolean,
       stylingInput: BoundStylingEntry): StylingInstruction {
     // each styling binding value is stored in the LView
-    let totalBindingSlotsRequired = 1;
+    // map-based bindings allocate two slots: one for the
+    // previous binding value and another for the previous
+    // className or style attribute value.
+    let totalBindingSlotsRequired = 2;
 
     // these values must be outside of the update block so that they can
     // be evaluated (the AST visit call) during creation time so that any

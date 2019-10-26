@@ -8,7 +8,6 @@
 
 import * as ts from 'typescript';
 import {createLanguageService} from '../src/language_service';
-import * as ng from '../src/types';
 import {TypeScriptServiceHost} from '../src/typescript_host';
 import {MockTypescriptHost} from './test_utils';
 
@@ -24,18 +23,18 @@ import {MockTypescriptHost} from './test_utils';
  * as well.
  */
 
-describe('diagnostics', () => {
-  let mockHost: MockTypescriptHost;
-  let ngHost: TypeScriptServiceHost;
-  let tsLS: ts.LanguageService;
-  let ngLS: ng.LanguageService;
+const EXPRESSION_CASES = '/app/expression-cases.ts';
+const NG_FOR_CASES = '/app/ng-for-cases.ts';
+const NG_IF_CASES = '/app/ng-if-cases.ts';
+const TEST_TEMPLATE = '/app/test.ng';
 
-  beforeEach(() => {
-    mockHost = new MockTypescriptHost(['/app/main.ts', '/app/parsing-cases.ts']);
-    tsLS = ts.createLanguageService(mockHost);
-    ngHost = new TypeScriptServiceHost(mockHost, tsLS);
-    ngLS = createLanguageService(ngHost);
-  });
+describe('diagnostics', () => {
+  const mockHost = new MockTypescriptHost(['/app/main.ts', '/app/parsing-cases.ts']);
+  const tsLS = ts.createLanguageService(mockHost);
+  const ngHost = new TypeScriptServiceHost(mockHost, tsLS);
+  const ngLS = createLanguageService(ngHost);
+
+  beforeEach(() => { mockHost.reset(); });
 
   it('should produce no diagnostics for test.ng', () => {
     // there should not be any errors on existing external template
@@ -55,6 +54,82 @@ describe('diagnostics', () => {
       const ngDiags = ngLS.getDiagnostics(file);
       expect(ngDiags).toEqual([]);
     }
+  });
+
+  // https://github.com/angular/vscode-ng-language-service/issues/242
+  it('should support $any() type cast function', () => {
+    mockHost.override(TEST_TEMPLATE, `<div>{{$any(title).xyz}}</div>`);
+    const diags = ngLS.getDiagnostics(TEST_TEMPLATE);
+    expect(diags).toEqual([]);
+  });
+
+  it('should report error for $any() with incorrect number of arguments', () => {
+    const templates = [
+      '<div>{{$any().xyz}}</div>',              // no argument
+      '<div>{{$any(title, title).xyz}}</div>',  // two arguments
+    ];
+    for (const template of templates) {
+      mockHost.override(TEST_TEMPLATE, template);
+      const diags = ngLS.getDiagnostics(TEST_TEMPLATE);
+      expect(diags.length).toBe(1);
+      expect(diags[0].messageText).toBe('Unable to resolve signature for call of method $any');
+    }
+  });
+
+  describe('in expression-cases.ts', () => {
+    it('should report access to an unknown field', () => {
+      const diags = ngLS.getDiagnostics(EXPRESSION_CASES).map(d => d.messageText);
+      expect(diags).toContain(
+          `Identifier 'foo' is not defined. ` +
+          `The component declaration, template variable declarations, ` +
+          `and element references do not contain such a member`);
+    });
+
+    it('should report access to an unknown sub-field', () => {
+      const diags = ngLS.getDiagnostics(EXPRESSION_CASES).map(d => d.messageText);
+      expect(diags).toContain(
+          `Identifier 'nam' is not defined. 'Person' does not contain such a member`);
+    });
+
+    it('should report access to a private member', () => {
+      const diags = ngLS.getDiagnostics(EXPRESSION_CASES).map(d => d.messageText);
+      expect(diags).toContain(`Identifier 'myField' refers to a private member of the component`);
+    });
+
+    it('should report numeric operator errors', () => {
+      const diags = ngLS.getDiagnostics(EXPRESSION_CASES).map(d => d.messageText);
+      expect(diags).toContain('Expected a numeric type');
+    });
+  });
+
+  describe('in ng-for-cases.ts', () => {
+    it('should report an unknown field', () => {
+      const diags = ngLS.getDiagnostics(NG_FOR_CASES).map(d => d.messageText);
+      expect(diags).toContain(
+          `Identifier 'people_1' is not defined. ` +
+          `The component declaration, template variable declarations, ` +
+          `and element references do not contain such a member`);
+    });
+
+    it('should report an unknown context reference', () => {
+      const diags = ngLS.getDiagnostics(NG_FOR_CASES).map(d => d.messageText);
+      expect(diags).toContain(`The template context does not define a member called 'even_1'`);
+    });
+
+    it('should report an unknown value in a key expression', () => {
+      const diags = ngLS.getDiagnostics(NG_FOR_CASES).map(d => d.messageText);
+      expect(diags).toContain(
+          `Identifier 'trackBy_1' is not defined. ` +
+          `The component declaration, template variable declarations, ` +
+          `and element references do not contain such a member`);
+    });
+  });
+
+  describe('in ng-if-cases.ts', () => {
+    it('should report an implicit context reference', () => {
+      const diags = ngLS.getDiagnostics(NG_IF_CASES).map(d => d.messageText);
+      expect(diags).toContain(`The template context does not define a member called 'unknown'`);
+    });
   });
 
   // #17611
@@ -176,11 +251,11 @@ describe('diagnostics', () => {
     const firstPart = messageText as ts.DiagnosticMessageChain;
     expect(firstPart.messageText).toBe(`Error during template compile of 'AppComponent'`);
     const secondPart = firstPart.next !;
-    expect(secondPart.messageText).toBe('Function expressions are not supported in decorators');
-    const thirdPart = secondPart.next !;
-    expect(thirdPart.messageText)
+    expect(secondPart[0].messageText).toBe('Function expressions are not supported in decorators');
+    const thirdPart = secondPart[0].next !;
+    expect(thirdPart[0].messageText)
         .toBe('Consider changing the function expression into an exported function');
-    expect(thirdPart.next).toBeFalsy();
+    expect(thirdPart[0].next).toBeFalsy();
   });
 
   it('should not throw for an invalid class', () => {
@@ -487,7 +562,7 @@ describe('diagnostics', () => {
   describe('templates', () => {
     it('should report errors for invalid templateUrls', () => {
       const fileName = mockHost.addCode(`
-	@Component({
+        @Component({
           templateUrl: '«notAFile»',
         })
         export class MyComponent {}`);
@@ -506,10 +581,10 @@ describe('diagnostics', () => {
 
     it('should not report errors for valid templateUrls', () => {
       const fileName = mockHost.addCode(`
-	@Component({
+        @Component({
           templateUrl: './test.ng',
-	})
-	export class MyComponent {}`);
+        })
+        export class MyComponent {}`);
 
       const diagnostics = ngLS.getDiagnostics(fileName) !;
       const urlDiagnostic =
@@ -591,30 +666,27 @@ describe('diagnostics', () => {
     });
   });
 
-  // https://github.com/angular/vscode-ng-language-service/issues/235
-  // There is no easy fix for this issue currently due to the way template
-  // tokenization is done. In the example below, the whole string
-  // `\r\n{{line0}}\r\n{{line1}}\r\n{{line2}}` is tokenized as a whole, and then
-  // CR characters are stripped from it. Source span information is lost in the
-  // process. For more discussion, see the link above.
-  /*
   it('should work correctly with CRLF endings', () => {
+    // https://github.com/angular/vscode-ng-language-service/issues/235
+    // In the example below, the string
+    // `\r\n{{line0}}\r\n{{line1}}\r\n{{line2}}` is tokenized as a whole,
+    // and then CRLF characters are converted to LF.
+    // Source span information is lost in the process.
     const fileName = '/app/test.ng';
-    const content = mockHost.override(fileName,
-  '\r\n<div>\r\n{{line0}}\r\n{{line1}}\r\n{{line2}}\r\n</div>');
+    const content =
+        mockHost.override(fileName, '\r\n<div>\r\n{{line0}}\r\n{{line1}}\r\n{{line2}}\r\n</div>');
     const ngDiags = ngLS.getDiagnostics(fileName);
     expect(ngDiags.length).toBe(3);
     for (let i = 0; i < 3; ++i) {
       const {messageText, start, length} = ngDiags[i];
       expect(messageText)
           .toBe(
-              `Identifier 'line${i}' is not defined. The component declaration, template variable
-  declarations, and element references do not contain such a member`);
+              `Identifier 'line${i}' is not defined. ` +
+              `The component declaration, template variable declarations, and ` +
+              `element references do not contain such a member`);
       // Assert that the span is actually highlight the bounded text. The span
       // would be off if CRLF endings are not handled properly.
       expect(content.substring(start !, start ! + length !)).toBe(`line${i}`);
     }
   });
-  */
-
 });

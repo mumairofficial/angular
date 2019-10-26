@@ -18,6 +18,7 @@ export interface AfterViewInit {
     ngAfterViewInit(): void;
 }
 
+/** @deprecated */
 export declare const ANALYZE_FOR_ENTRY_COMPONENTS: InjectionToken<any>;
 
 export declare const APP_BOOTSTRAP_LISTENER: InjectionToken<((compRef: ComponentRef<any>) => void)[]>;
@@ -116,7 +117,7 @@ export interface Component extends Directive {
     animations?: any[];
     changeDetection?: ChangeDetectionStrategy;
     encapsulation?: ViewEncapsulation;
-    entryComponents?: Array<Type<any> | any[]>;
+    /** @deprecated */ entryComponents?: Array<Type<any> | any[]>;
     interpolation?: [string, string];
     moduleId?: string;
     preserveWhitespaces?: boolean;
@@ -177,13 +178,13 @@ export interface ConstructorSansProvider {
 export declare type ContentChild = Query;
 
 export interface ContentChildDecorator {
-    (selector: Type<any> | Function | string, opts: {
+    (selector: Type<any> | Function | string, opts?: {
         read?: any;
-        static: boolean;
+        static?: boolean;
     }): any;
-    new (selector: Type<any> | Function | string, opts: {
+    new (selector: Type<any> | Function | string, opts?: {
         read?: any;
-        static: boolean;
+        static?: boolean;
     }): ContentChild;
 }
 
@@ -263,7 +264,7 @@ export declare class DefaultIterableDiffer<V> implements IterableDiffer<V>, Iter
     readonly length: number;
     constructor(trackByFn?: TrackByFunction<V>);
     check(collection: NgIterable<V>): boolean;
-    diff(collection: NgIterable<V>): DefaultIterableDiffer<V> | null;
+    diff(collection: NgIterable<V> | null | undefined): DefaultIterableDiffer<V> | null;
     forEachAddedItem(fn: (record: IterableChangeRecord_<V>) => void): void;
     forEachIdentityChange(fn: (record: IterableChangeRecord_<V>) => void): void;
     forEachItem(fn: (record: IterableChangeRecord_<V>) => void): void;
@@ -326,7 +327,6 @@ export declare class ErrorHandler {
 }
 
 export declare class EventEmitter<T extends any> extends Subject<T> {
-    __isAsync: boolean;
     constructor(isAsync?: boolean);
     emit(value?: T): void;
     subscribe(generatorOrNext?: any, error?: any, complete?: any): Subscription;
@@ -429,7 +429,7 @@ export interface InjectableDecorator {
 export declare type InjectableProvider = ValueSansProvider | ExistingSansProvider | StaticClassSansProvider | ConstructorSansProvider | FactorySansProvider | ClassSansProvider;
 
 export interface InjectableType<T> extends Type<T> {
-    ngInjectableDef: never;
+    ɵprov: never;
 }
 
 export interface InjectDecorator {
@@ -447,7 +447,7 @@ export declare enum InjectFlags {
 
 export declare class InjectionToken<T> {
     protected _desc: string;
-    readonly ngInjectableDef: never | undefined;
+    readonly ɵprov: never | undefined;
     constructor(_desc: string, options?: {
         providedIn?: Type<any> | 'root' | 'platform' | 'any' | null;
         factory: () => T;
@@ -460,7 +460,7 @@ export declare abstract class Injector {
     /** @deprecated */ abstract get(token: any, notFoundValue?: any): any;
     static NULL: Injector;
     static THROW_IF_NOT_FOUND: Object;
-    static ngInjectableDef: never;
+    static ɵprov: never;
     /** @deprecated */ static create(providers: StaticProvider[], parent?: Injector): Injector;
     static create(options: {
         providers: StaticProvider[];
@@ -472,7 +472,7 @@ export declare abstract class Injector {
 export declare const INJECTOR: InjectionToken<Injector>;
 
 export interface InjectorType<T> extends Type<T> {
-    ngInjectorDef: never;
+    ɵinj: never;
 }
 
 export interface Input {
@@ -506,7 +506,7 @@ export interface IterableChanges<V> {
 }
 
 export interface IterableDiffer<V> {
-    diff(object: NgIterable<V>): IterableChanges<V> | null;
+    diff(object: NgIterable<V> | undefined | null): IterableChanges<V> | null;
 }
 
 export interface IterableDifferFactory {
@@ -518,7 +518,7 @@ export declare class IterableDiffers {
     /** @deprecated */ factories: IterableDifferFactory[];
     constructor(factories: IterableDifferFactory[]);
     find(iterable: any): IterableDifferFactory;
-    static ngInjectableDef: never;
+    static ɵprov: never;
     static create(factories: IterableDifferFactory[], parent?: IterableDiffers): IterableDiffers;
     static extend(factories: IterableDifferFactory[]): StaticProvider;
 }
@@ -553,7 +553,7 @@ export declare class KeyValueDiffers {
     /** @deprecated */ factories: KeyValueDifferFactory[];
     constructor(factories: KeyValueDifferFactory[]);
     find(kv: any): KeyValueDifferFactory;
-    static ngInjectableDef: never;
+    static ɵprov: never;
     static create<S>(factories: KeyValueDifferFactory[], parent?: KeyValueDiffers): KeyValueDiffers;
     static extend<S>(factories: KeyValueDifferFactory[]): StaticProvider;
 }
@@ -582,7 +582,7 @@ export declare type NgIterable<T> = Array<T> | Iterable<T>;
 export interface NgModule {
     bootstrap?: Array<Type<any> | any[]>;
     declarations?: Array<Type<any> | any[]>;
-    entryComponents?: Array<Type<any> | any[]>;
+    /** @deprecated */ entryComponents?: Array<Type<any> | any[]>;
     exports?: Array<Type<any> | any[]>;
     id?: string;
     imports?: Array<Type<any> | ModuleWithProviders<{}> | any[]>;
@@ -701,21 +701,6 @@ export declare function ɵɵattributeInterpolate8(attrName: string, prefix: stri
 
 export declare function ɵɵattributeInterpolateV(attrName: string, values: any[], sanitizer?: SanitizerFn, namespace?: string): TsickleIssue1009;
 
-export interface ɵɵBaseDef<T> {
-    contentQueries: ContentQueriesFunction<T> | null;
-    /** @deprecated */ readonly declaredInputs: {
-        [P in keyof T]: string;
-    };
-    hostBindings: HostBindingsFunction<T> | null;
-    readonly inputs: {
-        [P in keyof T]: string;
-    };
-    readonly outputs: {
-        [P in keyof T]: string;
-    };
-    viewQuery: ViewQueriesFunction<T> | null;
-}
-
 export declare function ɵɵclassMap(classes: {
     [className: string]: any;
 } | NO_CHANGE | string | null): void;
@@ -756,24 +741,14 @@ export declare function ɵɵcontainerRefreshStart(index: number): void;
 
 export declare function ɵɵcontentQuery<T>(directiveIndex: number, predicate: Type<any> | string[], descend: boolean, read?: any): void;
 
-export declare const ɵɵdefaultStyleSanitizer: StyleSanitizeFn;
+export declare function ɵɵCopyDefinitionFeature(definition: DirectiveDef<any> | ComponentDef<any>): void;
 
-export declare function ɵɵdefineBase<T>(baseDefinition: {
-    inputs?: {
-        [P in keyof T]?: string | [string, string];
-    };
-    outputs?: {
-        [P in keyof T]?: string;
-    };
-    contentQueries?: ContentQueriesFunction<T> | null;
-    viewQuery?: ViewQueriesFunction<T> | null;
-    hostBindings?: HostBindingsFunction<T>;
-}): ɵɵBaseDef<T>;
+export declare const ɵɵdefaultStyleSanitizer: StyleSanitizeFn;
 
 export declare function ɵɵdefineComponent<T>(componentDefinition: {
     type: Type<T>;
     selectors: CssSelectorList;
-    consts: number;
+    decls: number;
     vars: number;
     inputs?: {
         [P in keyof T]?: string | [string, string];
@@ -785,6 +760,7 @@ export declare function ɵɵdefineComponent<T>(componentDefinition: {
     contentQueries?: ContentQueriesFunction<T>;
     exportAs?: string[];
     template: ComponentTemplate<T>;
+    consts?: TAttributes[];
     ngContentSelectors?: string[];
     viewQuery?: ViewQueriesFunction<T> | null;
     features?: ComponentDefFeature[];
@@ -803,7 +779,7 @@ export declare const ɵɵdefineDirective: <T>(directiveDefinition: {
     type: Type<T>;
     selectors: (string | SelectorFlags)[][];
     inputs?: { [P in keyof T]?: string | [string, string] | undefined; } | undefined;
-    outputs?: { [P in keyof T]?: string | undefined; } | undefined;
+    outputs?: { [P_1 in keyof T]?: string | undefined; } | undefined;
     features?: DirectiveDefFeature[] | undefined;
     hostBindings?: HostBindingsFunction<T> | undefined;
     contentQueries?: ContentQueriesFunction<T> | undefined;
@@ -850,23 +826,23 @@ export declare function ɵɵdirectiveInject<T>(token: Type<T> | InjectionToken<T
 
 export declare function ɵɵdisableBindings(): void;
 
-export declare function ɵɵelement(index: number, name: string, attrs?: TAttributes | null, localRefs?: string[] | null): void;
+export declare function ɵɵelement(index: number, name: string, constsIndex?: number | null, localRefs?: string[] | null): void;
 
-export declare function ɵɵelementContainer(index: number, attrs?: TAttributes | null, localRefs?: string[] | null): void;
+export declare function ɵɵelementContainer(index: number, constsIndex?: number | null, localRefs?: string[] | null): void;
 
 export declare function ɵɵelementContainerEnd(): void;
 
-export declare function ɵɵelementContainerStart(index: number, attrs?: TAttributes | null, localRefs?: string[] | null): void;
+export declare function ɵɵelementContainerStart(index: number, constsIndex?: number | null, localRefs?: string[] | null): void;
 
 export declare function ɵɵelementEnd(): void;
 
 export declare function ɵɵelementHostAttrs(attrs: TAttributes): void;
 
-export declare function ɵɵelementStart(index: number, name: string, attrs?: TAttributes | null, localRefs?: string[] | null): void;
+export declare function ɵɵelementStart(index: number, name: string, constsIndex?: number | null, localRefs?: string[] | null): void;
 
 export declare function ɵɵembeddedViewEnd(): void;
 
-export declare function ɵɵembeddedViewStart(viewBlockId: number, consts: number, vars: number): RenderFlags;
+export declare function ɵɵembeddedViewStart(viewBlockId: number, decls: number, vars: number): RenderFlags;
 
 export declare function ɵɵenableBindings(): void;
 
@@ -917,6 +893,8 @@ export interface ɵɵInjectorDef<T> {
 }
 
 export declare function ɵɵinjectPipeChangeDetectorRef(flags?: InjectFlags): ChangeDetectorRef | null;
+
+export declare function ɵɵinvalidFactory(): never;
 
 export declare function ɵɵlistener(eventName: string, listenerFn: (e?: any) => any, useCapture?: boolean, eventTargetResolver?: GlobalTargetResolver): void;
 
@@ -1076,7 +1054,7 @@ export declare function ɵɵstylePropInterpolateV(prop: string, values: any[], v
 
 export declare function ɵɵstyleSanitizer(sanitizer: StyleSanitizeFn | null): void;
 
-export declare function ɵɵtemplate(index: number, templateFn: ComponentTemplate<any> | null, consts: number, vars: number, tagName?: string | null, attrs?: TAttributes | null, localRefs?: string[] | null, localRefExtractor?: LocalRefExtractor): void;
+export declare function ɵɵtemplate(index: number, templateFn: ComponentTemplate<any> | null, decls: number, vars: number, tagName?: string | null, constsIndex?: number | null, localRefs?: string[] | null, localRefExtractor?: LocalRefExtractor): void;
 
 export declare function ɵɵtemplateRefExtractor(tNode: TNode, currentView: LView): ViewEngine_TemplateRef<unknown> | null;
 
@@ -1151,7 +1129,7 @@ export interface Query {
     isViewQuery: boolean;
     read: any;
     selector: any;
-    static: boolean;
+    static?: boolean;
 }
 
 export declare abstract class Query {
@@ -1199,40 +1177,6 @@ export declare class ReflectiveKey {
     constructor(token: Object, id: number);
     static readonly numberOfKeys: number;
     static get(token: Object): ReflectiveKey;
-}
-
-/** @deprecated */
-export declare class RenderComponentType {
-    animations: any;
-    encapsulation: ViewEncapsulation;
-    id: string;
-    slotCount: number;
-    styles: Array<string | any[]>;
-    templateUrl: string;
-    constructor(id: string, templateUrl: string, slotCount: number, encapsulation: ViewEncapsulation, styles: Array<string | any[]>, animations: any);
-}
-
-/** @deprecated */
-export declare abstract class Renderer {
-    abstract animate(element: any, startingStyles: any, keyframes: any[], duration: number, delay: number, easing: string, previousPlayers?: any[]): any;
-    abstract attachViewAfter(node: any, viewRootNodes: any[]): void;
-    abstract createElement(parentElement: any, name: string, debugInfo?: RenderDebugInfo): any;
-    abstract createTemplateAnchor(parentElement: any, debugInfo?: RenderDebugInfo): any;
-    abstract createText(parentElement: any, value: string, debugInfo?: RenderDebugInfo): any;
-    abstract createViewRoot(hostElement: any): any;
-    abstract destroyView(hostElement: any, viewAllNodes: any[]): void;
-    abstract detachView(viewRootNodes: any[]): void;
-    abstract invokeElementMethod(renderElement: any, methodName: string, args?: any[]): void;
-    abstract listen(renderElement: any, name: string, callback: Function): Function;
-    abstract listenGlobal(target: string, name: string, callback: Function): Function;
-    abstract projectNodes(parentElement: any, nodes: any[]): void;
-    abstract selectRootElement(selectorOrNode: string | any, debugInfo?: RenderDebugInfo): any;
-    abstract setBindingDebugInfo(renderElement: any, propertyName: string, propertyValue: string): void;
-    abstract setElementAttribute(renderElement: any, attributeName: string, attributeValue?: string): void;
-    abstract setElementClass(renderElement: any, className: string, isAdd: boolean): void;
-    abstract setElementProperty(renderElement: any, propertyName: string, propertyValue: any): void;
-    abstract setElementStyle(renderElement: any, styleName: string, styleValue?: string): void;
-    abstract setText(renderNode: any, text: string): void;
 }
 
 export declare abstract class Renderer2 {
@@ -1298,14 +1242,9 @@ export interface ResolvedReflectiveProvider {
 
 export declare function resolveForwardRef<T>(type: T): T;
 
-/** @deprecated */
-export declare abstract class RootRenderer {
-    abstract renderComponent(componentType: RenderComponentType): Renderer;
-}
-
 export declare abstract class Sanitizer {
     abstract sanitize(context: SecurityContext, value: {} | string | null): string | null;
-    static ngInjectableDef: never;
+    static ɵprov: never;
 }
 
 export interface SchemaMetadata {
@@ -1445,13 +1384,13 @@ export declare const VERSION: Version;
 export declare type ViewChild = Query;
 
 export interface ViewChildDecorator {
-    (selector: Type<any> | Function | string, opts: {
+    (selector: Type<any> | Function | string, opts?: {
         read?: any;
-        static: boolean;
+        static?: boolean;
     }): any;
-    new (selector: Type<any> | Function | string, opts: {
+    new (selector: Type<any> | Function | string, opts?: {
         read?: any;
-        static: boolean;
+        static?: boolean;
     }): ViewChild;
 }
 

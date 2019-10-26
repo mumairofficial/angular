@@ -13,10 +13,12 @@ describe('styling debugging tools', () => {
   describe('NodeStylingDebug', () => {
     it('should list out each of the values in the context paired together with the provided data',
        () => {
-         const debug = makeContextWithDebug();
+         if (isIE()) return;
+
+         const debug = makeContextWithDebug(false);
          const context = debug.context;
          const data: any[] = [];
-         const d = new NodeStylingDebug(context, data);
+         const d = new NodeStylingDebug(context, data, false);
 
          registerBinding(context, 0, 0, 'width', null);
          expect(d.summary).toEqual({
@@ -63,7 +65,12 @@ describe('styling debugging tools', () => {
   });
 });
 
-function makeContextWithDebug() {
-  const ctx = allocTStylingContext();
-  return attachStylingDebugObject(ctx);
+function makeContextWithDebug(isClassBased: boolean) {
+  const ctx = allocTStylingContext(null, false);
+  return attachStylingDebugObject(ctx, isClassBased);
+}
+
+function isIE() {
+  // note that this only applies to older IEs (not edge)
+  return typeof window !== 'undefined' && (window as any).document['documentMode'] ? true : false;
 }

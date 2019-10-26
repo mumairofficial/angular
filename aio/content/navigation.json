@@ -704,6 +704,11 @@
           "tooltip": "Angular versioning, release, support, and deprecation policies and practices."
         },
         {
+          "url": "guide/updating-to-version-9",
+          "title": "Updating to Version 9",
+          "tooltip": "Support for updating your application from version 8 to 9."
+        },
+        {
           "url": "guide/deprecations",
           "title": "Deprecations",
           "tooltip": "Summary of Angular APIs and features that are deprecated."
@@ -744,6 +749,11 @@
           "title": "Usage Analytics",
           "tooltip": "For administrators, guide to gathering usage analytics from your users.",
           "url": "cli/usage-analytics-gathering"
+        },
+        {
+          "title": "ngcc",
+          "tooltip": "Description of the Angular Compatibility Compiler.",
+          "url": "guide/ngcc"
         }
       ]
     },

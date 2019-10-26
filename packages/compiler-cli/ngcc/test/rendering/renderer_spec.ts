@@ -10,6 +10,7 @@ import * as ts from 'typescript';
 import {fromObject, generateMapFileComment, SourceMapConverter} from 'convert-source-map';
 import {absoluteFrom, getFileSystem} from '../../../src/ngtsc/file_system';
 import {TestFile, runInEachFileSystem} from '../../../src/ngtsc/file_system/testing';
+import {Reexport} from '../../../src/ngtsc/imports';
 import {loadTestFiles} from '../../../test/helpers';
 import {Import, ImportManager} from '../../../src/ngtsc/translator';
 import {DecorationAnalyzer} from '../../src/analysis/decoration_analyzer';
@@ -30,6 +31,9 @@ class TestRenderingFormatter implements RenderingFormatter {
   }
   addExports(output: MagicString, baseEntryPointPath: string, exports: ExportInfo[]) {
     output.prepend('\n// ADD EXPORTS\n');
+  }
+  addDirectExports(output: MagicString, exports: Reexport[]): void {
+    output.prepend('\n// ADD DIRECT EXPORTS\n');
   }
   addConstants(output: MagicString, constants: string, file: ts.SourceFile): void {
     output.prepend('\n// ADD CONSTANTS\n');
@@ -188,8 +192,8 @@ runInEachFileSystem(() => {
             decorationAnalyses, switchMarkerAnalyses, privateDeclarationsAnalyses);
         const addDefinitionsSpy = testFormatter.addDefinitions as jasmine.Spy;
         expect(addDefinitionsSpy.calls.first().args[2])
-            .toEqual(`A.ngFactoryDef = function A_Factory(t) { return new (t || A)(); };
-A.ngComponentDef = ɵngcc0.ɵɵdefineComponent({ type: A, selectors: [["a"]], consts: 1, vars: 1, template: function A_Template(rf, ctx) { if (rf & 1) {
+            .toEqual(`A.ɵfac = function A_Factory(t) { return new (t || A)(); };
+A.ɵcmp = ɵngcc0.ɵɵdefineComponent({ type: A, selectors: [["a"]], decls: 1, vars: 1, template: function A_Template(rf, ctx) { if (rf & 1) {
         ɵngcc0.ɵɵtext(0);
     } if (rf & 2) {
         ɵngcc0.ɵɵtextInterpolate(ctx.person.name);
@@ -229,8 +233,8 @@ A.ngComponentDef = ɵngcc0.ɵɵdefineComponent({ type: A, selectors: [["a"]], co
              }));
 
              expect(addDefinitionsSpy.calls.first().args[2])
-                 .toEqual(`A.ngFactoryDef = function A_Factory(t) { return new (t || A)(); };
-A.ngDirectiveDef = ɵngcc0.ɵɵdefineDirective({ type: A, selectors: [["", "a", ""]] });
+                 .toEqual(`A.ɵfac = function A_Factory(t) { return new (t || A)(); };
+A.ɵdir = ɵngcc0.ɵɵdefineDirective({ type: A, selectors: [["", "a", ""]] });
 /*@__PURE__*/ ɵngcc0.ɵsetClassMetadata(A, [{
         type: Directive,
         args: [{ selector: '[a]' }]
@@ -268,19 +272,19 @@ A.ngDirectiveDef = ɵngcc0.ɵɵdefineDirective({ type: A, selectors: [["", "a", 
               decorationAnalyses, switchMarkerAnalyses, privateDeclarationsAnalyses);
           const addDefinitionsSpy = testFormatter.addDefinitions as jasmine.Spy;
           const definitions: string = addDefinitionsSpy.calls.first().args[2];
-          const ngModuleDef = definitions.indexOf('ngModuleDef');
-          expect(ngModuleDef).not.toEqual(-1, 'ngModuleDef should exist');
-          const ngInjectorDef = definitions.indexOf('ngInjectorDef');
-          expect(ngInjectorDef).not.toEqual(-1, 'ngInjectorDef should exist');
+          const ngModuleDef = definitions.indexOf('ɵmod');
+          expect(ngModuleDef).not.toEqual(-1, 'ɵmod should exist');
+          const ngInjectorDef = definitions.indexOf('ɵinj');
+          expect(ngInjectorDef).not.toEqual(-1, 'ɵinj should exist');
           const setClassMetadata = definitions.indexOf('setClassMetadata');
           expect(setClassMetadata).not.toEqual(-1, 'setClassMetadata call should exist');
           expect(setClassMetadata)
-              .toBeGreaterThan(ngModuleDef, 'setClassMetadata should follow ngModuleDef');
+              .toBeGreaterThan(ngModuleDef, 'setClassMetadata should follow ɵmod');
           expect(setClassMetadata)
-              .toBeGreaterThan(ngInjectorDef, 'setClassMetadata should follow ngInjectorDef');
+              .toBeGreaterThan(ngInjectorDef, 'setClassMetadata should follow ɵinj');
         });
 
-        it('should render classes without decorators if handler matches', () => {
+        it('should render classes without decorators if class fields are decorated', () => {
           const {renderer, decorationAnalyses, switchMarkerAnalyses, privateDeclarationsAnalyses,
                  testFormatter} =
               createTestRenderer('test-package', [{
@@ -305,7 +309,8 @@ A.ngDirectiveDef = ɵngcc0.ɵɵdefineDirective({ type: A, selectors: [["", "a", 
           const addDefinitionsSpy = testFormatter.addDefinitions as jasmine.Spy;
           expect(addDefinitionsSpy.calls.first().args[2])
               .toEqual(
-                  `UndecoratedBase.ngBaseDef = ɵngcc0.ɵɵdefineBase({ viewQuery: function (rf, ctx) { if (rf & 1) {
+                  `UndecoratedBase.ɵfac = function UndecoratedBase_Factory(t) { return new (t || UndecoratedBase)(); };
+UndecoratedBase.ɵdir = ɵngcc0.ɵɵdefineDirective({ type: UndecoratedBase, selectors: [], viewQuery: function UndecoratedBase_Query(rf, ctx) { if (rf & 1) {
         ɵngcc0.ɵɵstaticViewQuery(_c0, true);
     } if (rf & 2) {
         var _t;

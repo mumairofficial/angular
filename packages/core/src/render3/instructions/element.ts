@@ -19,7 +19,7 @@ import {assertNodeType} from '../node_assert';
 import {appendChild} from '../node_manipulation';
 import {decreaseElementDepthCount, getElementDepthCount, getIsParent, getLView, getNamespace, getPreviousOrParentTNode, getSelectedIndex, increaseElementDepthCount, setIsNotParent, setPreviousOrParentTNode} from '../state';
 import {setUpAttributes} from '../util/attrs_utils';
-import {getInitialStylingValue, hasClassInput, hasStyleInput} from '../util/styling_utils';
+import {getInitialStylingValue, hasClassInput, hasStyleInput, selectClassBasedInputName} from '../util/styling_utils';
 import {getNativeByTNode, getTNode} from '../util/view_utils';
 
 import {createDirectivesInstances, elementCreate, executeContentQueries, getOrCreateTNode, renderInitialStyling, resolveDirectives, saveResolvedLocalsInData, setInputsForProperty} from './shared';
@@ -32,8 +32,7 @@ import {registerInitialStylingOnTNode} from './styling';
  *
  * @param index Index of the element in the LView array
  * @param name Name of the DOM Node
- * @param attrs Statically bound set of attributes, classes, and styles to be written into the DOM
- *              element on creation. Use [AttributeMarker] to denote the meaning of this array.
+ * @param constsIndex Index of the element in the `consts` array.
  * @param localRefs A set of local reference bindings on the element.
  *
  * Attributes and localRefs are passed as an array of strings where elements with an even index
@@ -43,28 +42,31 @@ import {registerInitialStylingOnTNode} from './styling';
  * @codeGenApi
  */
 export function ɵɵelementStart(
-    index: number, name: string, attrs?: TAttributes | null, localRefs?: string[] | null): void {
+    index: number, name: string, constsIndex?: number | null, localRefs?: string[] | null): void {
   const lView = getLView();
   const tView = lView[TVIEW];
+  const tViewConsts = tView.consts;
+  const consts = tViewConsts === null || constsIndex == null ? null : tViewConsts[constsIndex];
   ngDevMode && assertEqual(
                    lView[BINDING_INDEX], tView.bindingStartIndex,
-                   'elements should be created before any bindings ');
+                   'elements should be created before any bindings');
 
   ngDevMode && ngDevMode.rendererCreateElement++;
   ngDevMode && assertDataInRange(lView, index + HEADER_OFFSET);
   const renderer = lView[RENDERER];
   const native = lView[index + HEADER_OFFSET] = elementCreate(name, renderer, getNamespace());
-  const tNode =
-      getOrCreateTNode(tView, lView[T_HOST], index, TNodeType.Element, name, attrs || null);
+  const tNode = getOrCreateTNode(tView, lView[T_HOST], index, TNodeType.Element, name, consts);
 
-  if (attrs != null) {
-    const lastAttrIndex = setUpAttributes(renderer, native, attrs);
+  if (consts != null) {
+    const lastAttrIndex = setUpAttributes(renderer, native, consts);
     if (tView.firstTemplatePass) {
-      registerInitialStylingOnTNode(tNode, attrs, lastAttrIndex);
+      registerInitialStylingOnTNode(tNode, consts, lastAttrIndex);
     }
   }
 
-  renderInitialStyling(renderer, native, tNode);
+  if ((tNode.flags & TNodeFlags.hasInitialStyling) === TNodeFlags.hasInitialStyling) {
+    renderInitialStyling(renderer, native, tNode, false);
+  }
 
   appendChild(native, tNode, lView);
 
@@ -83,16 +85,6 @@ export function ɵɵelementStart(
   if (tView.firstTemplatePass) {
     ngDevMode && ngDevMode.firstTemplatePass++;
     resolveDirectives(tView, lView, tNode, localRefs || null);
-
-    const inputData = tNode.inputs;
-    if (inputData != null) {
-      if (inputData.hasOwnProperty('class')) {
-        tNode.flags |= TNodeFlags.hasClassInput;
-      }
-      if (inputData.hasOwnProperty('style')) {
-        tNode.flags |= TNodeFlags.hasStyleInput;
-      }
-    }
 
     if (tView.queries !== null) {
       tView.queries.elementStart(tView, tNode);
@@ -140,7 +132,8 @@ export function ɵɵelementEnd(): void {
   }
 
   if (hasClassInput(tNode)) {
-    setDirectiveStylingInput(tNode.classes, lView, tNode.inputs !['class']);
+    const inputName: string = selectClassBasedInputName(tNode.inputs !);
+    setDirectiveStylingInput(tNode.classes, lView, tNode.inputs ![inputName]);
   }
 
   if (hasStyleInput(tNode)) {
@@ -154,15 +147,14 @@ export function ɵɵelementEnd(): void {
  *
  * @param index Index of the element in the data array
  * @param name Name of the DOM Node
- * @param attrs Statically bound set of attributes, classes, and styles to be written into the DOM
- *              element on creation. Use [AttributeMarker] to denote the meaning of this array.
+ * @param constsIndex Index of the element in the `consts` array.
  * @param localRefs A set of local reference bindings on the element.
  *
  * @codeGenApi
  */
 export function ɵɵelement(
-    index: number, name: string, attrs?: TAttributes | null, localRefs?: string[] | null): void {
-  ɵɵelementStart(index, name, attrs, localRefs);
+    index: number, name: string, constsIndex?: number | null, localRefs?: string[] | null): void {
+  ɵɵelementStart(index, name, constsIndex, localRefs);
   ɵɵelementEnd();
 }
 
@@ -230,7 +222,7 @@ export function ɵɵelementHostAttrs(attrs: TAttributes) {
       // attribute values to the element.
       if (stylingNeedsToBeRendered) {
         const renderer = lView[RENDERER];
-        renderInitialStyling(renderer, native, tNode);
+        renderInitialStyling(renderer, native, tNode, true);
       }
     }
   }

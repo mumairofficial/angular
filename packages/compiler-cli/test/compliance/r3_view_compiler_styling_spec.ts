@@ -95,7 +95,7 @@ describe('compiler compliance: styling', () => {
          };
 
          const template = `
-         MyComponent.ngComponentDef = $r3$.ɵɵdefineComponent({
+         MyComponent.ɵcmp = $r3$.ɵɵdefineComponent({
            …
            styles: ["div.cool { color: blue; }", ":host.nice p { color: gold; }"],
            encapsulation: 1
@@ -128,10 +128,10 @@ describe('compiler compliance: styling', () => {
       };
 
       const template = `
-        MyComponent.ngComponentDef = $r3$.ɵɵdefineComponent({
+        MyComponent.ɵcmp = $r3$.ɵɵdefineComponent({
           type: MyComponent,
           selectors:[["my-component"]],
-          consts: 0,
+          decls: 0,
           vars: 0,
           template:  function MyComponent_Template(rf, $ctx$) {
           },
@@ -167,10 +167,10 @@ describe('compiler compliance: styling', () => {
       };
 
       const template = `
-        MyComponent.ngComponentDef = $r3$.ɵɵdefineComponent({
+        MyComponent.ɵcmp = $r3$.ɵɵdefineComponent({
           type: MyComponent,
           selectors:[["my-component"]],
-          consts: 0,
+          decls: 0,
           vars: 0,
           template:  function MyComponent_Template(rf, $ctx$) {
           },
@@ -209,9 +209,9 @@ describe('compiler compliance: styling', () => {
 
       const template = `
         …
-        MyComponent.ngComponentDef = $r3$.ɵɵdefineComponent({
+        MyComponent.ɵcmp = $r3$.ɵɵdefineComponent({
           …
-          consts: 3,
+          decls: 3,
           vars: 3,
           template:  function MyComponent_Template(rf, $ctx$) {
             if (rf & 1) {
@@ -270,9 +270,9 @@ describe('compiler compliance: styling', () => {
 
       const template = `
         …
-        MyComponent.ngComponentDef = $r3$.ɵɵdefineComponent({
+        MyComponent.ɵcmp = $r3$.ɵɵdefineComponent({
           …
-          consts: 1,
+          decls: 1,
           vars: 1,
           template: function MyComponent_Template(rf, ctx) {
             if (rf & 1) {
@@ -332,7 +332,7 @@ describe('compiler compliance: styling', () => {
       };
 
       const template = `
-        MyAnimDir.ngDirectiveDef = $r3$.ɵɵdefineDirective({
+        MyAnimDir.ɵdir = $r3$.ɵɵdefineDirective({
           …
           hostBindings: function MyAnimDir_HostBindings(rf, ctx, elIndex) {
             if (rf & 1) {
@@ -435,8 +435,8 @@ describe('compiler compliance: styling', () => {
 
          const template = `
         …
-          consts: 1,
-          vars: 2,
+          decls: 1,
+          vars: 3,
           template: function MyComponentWithInterpolation_Template(rf, $ctx$) {
             if (rf & 1) {
               $r3$.ɵɵelement(0, "div");
@@ -446,8 +446,8 @@ describe('compiler compliance: styling', () => {
             }
           }
         …
-          consts: 1,
-          vars: 3,
+          decls: 1,
+          vars: 4,
           template: function MyComponentWithMuchosInterpolation_Template(rf, $ctx$) {
             if (rf & 1) {
               $r3$.ɵɵelement(0, "div");
@@ -457,8 +457,8 @@ describe('compiler compliance: styling', () => {
             }
           }
         …
-          consts: 1,
-          vars: 1,
+          decls: 1,
+          vars: 2,
           template: function MyComponentWithoutInterpolation_Template(rf, $ctx$) {
             if (rf & 1) {
               $r3$.ɵɵelement(0, "div");
@@ -501,16 +501,16 @@ describe('compiler compliance: styling', () => {
          };
 
          const template = `
-          const $_c0$ = [${AttributeMarker.Styles}, "opacity", "1"];
           …
-          MyComponent.ngComponentDef = $r3$.ɵɵdefineComponent({
+          MyComponent.ɵcmp = $r3$.ɵɵdefineComponent({
               type: MyComponent,
               selectors:[["my-component"]],
-              consts: 1,
-              vars: 4,
+              decls: 1,
+              vars: 5,
+              consts: [[${AttributeMarker.Styles}, "opacity", "1"]],
               template:  function MyComponent_Template(rf, $ctx$) {
                 if (rf & 1) {
-                  $r3$.ɵɵelement(0, "div", $_c0$);
+                  $r3$.ɵɵelement(0, "div", 0);
                 }
                 if (rf & 2) {
                   $r3$.ɵɵstyleSanitizer($r3$.ɵɵdefaultStyleSanitizer);
@@ -550,10 +550,10 @@ describe('compiler compliance: styling', () => {
          };
 
          const template = `
-          MyComponent.ngComponentDef = $r3$.ɵɵdefineComponent({
+          MyComponent.ɵcmp = $r3$.ɵɵdefineComponent({
             type: MyComponent,
             selectors: [["my-component"]],
-            consts: 1,
+            decls: 1,
             vars: 1,
             template:  function MyComponent_Template(rf, ctx) {
               if (rf & 1) {
@@ -695,16 +695,16 @@ describe('compiler compliance: styling', () => {
          };
 
          const template = `
-          const $e0_attrs$ = [${AttributeMarker.Classes}, "grape"];
           …
-          MyComponent.ngComponentDef = $r3$.ɵɵdefineComponent({
+          MyComponent.ɵcmp = $r3$.ɵɵdefineComponent({
               type: MyComponent,
               selectors:[["my-component"]],
-              consts: 1,
-              vars: 4,
+              decls: 1,
+              vars: 5,
+              consts: [[${AttributeMarker.Classes}, "grape"]],
               template:  function MyComponent_Template(rf, $ctx$) {
                 if (rf & 1) {
-                  $r3$.ɵɵelement(0, "div", $e0_attrs$);
+                  $r3$.ɵɵelement(0, "div", 0);
                 }
                 if (rf & 2) {
                   $r3$.ɵɵclassMap($ctx$.myClassExp);
@@ -744,16 +744,16 @@ describe('compiler compliance: styling', () => {
          };
 
          const template = `
-          const $e0_attrs$ = [${AttributeMarker.Classes}, "foo", ${AttributeMarker.Styles}, "width", "100px"];
           …
-          MyComponent.ngComponentDef = $r3$.ɵɵdefineComponent({
+          MyComponent.ɵcmp = $r3$.ɵɵdefineComponent({
               type: MyComponent,
               selectors:[["my-component"]],
-              consts: 1,
+              decls: 1,
               vars: 2,
+              consts: [[${AttributeMarker.Classes}, "foo", ${AttributeMarker.Styles}, "width", "100px"]],
               template:  function MyComponent_Template(rf, $ctx$) {
                 if (rf & 1) {
-                  $r3$.ɵɵelement(0, "div", $e0_attrs$);
+                  $r3$.ɵɵelement(0, "div", 0);
                 }
                 if (rf & 2) {
                   $r3$.ɵɵattribute("class", "round")("style", "height:100px", $r3$.ɵɵsanitizeStyle);
@@ -863,8 +863,8 @@ describe('compiler compliance: styling', () => {
             }
             if (rf & 2) {
               $r3$.ɵɵstyleSanitizer($r3$.ɵɵdefaultStyleSanitizer);
-              $r3$.ɵɵstyleMap($r3$.ɵɵpipeBind1(1, 2, $ctx$.myStyleExp));
-              $r3$.ɵɵclassMap($r3$.ɵɵpipeBind1(2, 4, $ctx$.myClassExp));
+              $r3$.ɵɵstyleMap($r3$.ɵɵpipeBind1(1, 4, $ctx$.myStyleExp));
+              $r3$.ɵɵclassMap($r3$.ɵɵpipeBind1(2, 6, $ctx$.myClassExp));
             }
           }
           `;
@@ -916,11 +916,11 @@ describe('compiler compliance: styling', () => {
             }
             if (rf & 2) {
               $r3$.ɵɵstyleSanitizer($r3$.ɵɵdefaultStyleSanitizer);
-              $r3$.ɵɵstyleMap($r3$.ɵɵpipeBind2(1, 6, $ctx$.myStyleExp, 1000));
+              $r3$.ɵɵstyleMap($r3$.ɵɵpipeBind2(1, 8, $ctx$.myStyleExp, 1000));
               $r3$.ɵɵclassMap($e2_styling$);
-              $r3$.ɵɵstyleProp("bar", $r3$.ɵɵpipeBind2(2, 9, $ctx$.barExp, 3000));
-              $r3$.ɵɵstyleProp("baz", $r3$.ɵɵpipeBind2(3, 12, $ctx$.bazExp, 4000));
-              $r3$.ɵɵclassProp("foo", $r3$.ɵɵpipeBind2(4, 15, $ctx$.fooExp, 2000));
+              $r3$.ɵɵstyleProp("bar", $r3$.ɵɵpipeBind2(2, 11, $ctx$.barExp, 3000));
+              $r3$.ɵɵstyleProp("baz", $r3$.ɵɵpipeBind2(3, 14, $ctx$.bazExp, 4000));
+              $r3$.ɵɵclassProp("foo", $r3$.ɵɵpipeBind2(4, 17, $ctx$.fooExp, 2000));
               $r3$.ɵɵadvance(5);
              $r3$.ɵɵtextInterpolate1(" ", $ctx$.item, "");
             }
@@ -1018,7 +1018,7 @@ describe('compiler compliance: styling', () => {
       const template = `
           hostBindings: function MyComponent_HostBindings(rf, ctx, elIndex) {
             if (rf & 1) {
-              $r3$.ɵɵallocHostVars(4);
+              $r3$.ɵɵallocHostVars(6);
               $r3$.ɵɵelementHostAttrs($e0_attrs$);
             }
             if (rf & 2) {
@@ -1029,7 +1029,7 @@ describe('compiler compliance: styling', () => {
               $r3$.ɵɵclassProp("foo", ctx.myFooClass);
             }
           },
-          consts: 0,
+          decls: 0,
           vars: 0,
           `;
 
@@ -1077,7 +1077,7 @@ describe('compiler compliance: styling', () => {
       const template = `
           hostBindings: function MyComponent_HostBindings(rf, ctx, elIndex) {
             if (rf & 1) {
-              $r3$.ɵɵallocHostVars(6);
+              $r3$.ɵɵallocHostVars(8);
             }
             if (rf & 2) {
               $r3$.ɵɵstyleSanitizer($r3$.ɵɵdefaultStyleSanitizer);
@@ -1089,7 +1089,7 @@ describe('compiler compliance: styling', () => {
               $r3$.ɵɵclassProp("foo", ctx.myFooClass);
             }
           },
-          consts: 0,
+          decls: 0,
           vars: 0,
           `;
 
@@ -1152,7 +1152,7 @@ describe('compiler compliance: styling', () => {
          const hostBindings = `
             hostBindings: function MyComponent_HostBindings(rf, ctx, elIndex) {
               if (rf & 1) {
-                $r3$.ɵɵallocHostVars(4);
+                $r3$.ɵɵallocHostVars(6);
               }
               if (rf & 2) {
                 $r3$.ɵɵstyleSanitizer($r3$.ɵɵdefaultStyleSanitizer);
@@ -1218,7 +1218,7 @@ describe('compiler compliance: styling', () => {
          const template = `
           function ClassDirective_HostBindings(rf, ctx, elIndex) {
             if (rf & 1) {
-              $r3$.ɵɵallocHostVars(1);
+              $r3$.ɵɵallocHostVars(2);
             }
             if (rf & 2) {
               $r3$.ɵɵclassMap(ctx.myClassMap);
@@ -1506,7 +1506,7 @@ describe('compiler compliance: styling', () => {
       …
       hostBindings: function MyComponent_HostBindings(rf, ctx, elIndex) {
         if (rf & 1) {
-          $r3$.ɵɵallocHostVars(4);
+          $r3$.ɵɵallocHostVars(6);
           $r3$.ɵɵelementHostAttrs($_c0$);
         }
         if (rf & 2) {

@@ -18,13 +18,13 @@ export class TreeFunction {
   data: TreeNode = emptyTree;
 
   /** @nocollapse */
-  static ngFactoryDef = () => new TreeFunction;
+  static ɵfac = () => new TreeFunction;
 
   /** @nocollapse */
-  static ngComponentDef = ɵɵdefineComponent({
+  static ɵcmp = ɵɵdefineComponent({
     type: TreeFunction,
     selectors: [['tree']],
-    consts: 5,
+    decls: 5,
     vars: 1,
     template: function(rf: ɵRenderFlags, ctx: TreeFunction) {
       // bit of a hack
